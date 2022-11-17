@@ -1,0 +1,14 @@
+{
+    "compilerOptions": {
+        "noImplicitAny": true,
+        "target": "es5",
+        "module": "CommonJS",
+        "moduleResolution": "node",
+        "typeRoots" : [
+            "../node_modules/@types",
+            "../node_modules/pixi.js",
+        ],
+        "types" : ["node", "pixi.js"],
+    },
+    "include": ["../src/app/*.ts", "../src/assets/*", "../src/shaders/*"]
+}
