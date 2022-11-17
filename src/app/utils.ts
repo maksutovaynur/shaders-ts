@@ -15,23 +15,33 @@ function loadGeometry(w: number, h: number, worldScale = 1, colorScale = 1) {
         .addIndex([0, 1, 2, 0, 2, 3]);
 }
 
-export default function createShape(x: number, y: number, minscale = 0.01, shaderIter=128) {
+class Fractal {
+    constructor(public shape: PIXI.Mesh<PIXI.Shader>, public params: any){}
+}
+
+export default function createFractal(
+    x: number, 
+    y: number, 
+    minscale = 0.01, 
+    shaderIter=128
+): Fractal {
     const scale = 2 / Math.min(x, y);
+    const uniform = {
+        tex: PIXI.Texture.from(paletteSrc),
+        scale: {type: 'v2', value: {x: 1.0, y: 1.0}},
+        center: {type: 'v2', value: {x: 0.0, y: 0.0}},
+    }
     const shape = new PIXI.Mesh(
         loadGeometry(x / minscale, y / minscale, scale, scale * minscale),
-        loadShader(shaderIter)
+        loadShader(uniform, shaderIter)
     );
     shape.position.set(x / 2, y / 2);
     shape.scale.set(minscale);
-    return shape;
+    return new Fractal(shape, uniform);
 }
 
-function loadShader(iter = 5) {
+function loadShader(uniform: any, iter: number = 5): PIXI.Shader {
     const fragSrc = shader_frag.replace("{iter}", iter);
     const vertSrc = shader_vert;
-    const uniform = {
-        tex: PIXI.Texture.from(paletteSrc),
-        center: {type: 'v2', value: {x: 0, y: 0}}
-    }
     return PIXI.Shader.from(vertSrc, fragSrc, uniform);
 }

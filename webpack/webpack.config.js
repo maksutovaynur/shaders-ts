@@ -20,10 +20,6 @@ module.exports = {
     },
     plugins: plugins,
     mode: 'development',
-    watchOptions: {
-        aggregateTimeout: 1000,
-        ignored: '**/node_modules',
-    },
     devServer: {
         historyApiFallback: true,
         static: path.resolve(__dirname, '../dist'),
@@ -35,8 +31,7 @@ module.exports = {
                 path.resolve(__dirname, "../src/*"),
             ]
         },
-        liveReload: true,
-        // hot: true,
+        hot: true,
         port: 8080,
     }
 }

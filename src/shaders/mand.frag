@@ -1,4 +1,8 @@
+precision highp float;
+
+uniform vec2 scale;
 uniform sampler2D tex;
+uniform vec2 center;
 varying vec3 vColor;
 varying vec2 vUvs;
 
@@ -7,8 +11,8 @@ void main() {
     int i = 0;
     const int iter = {iter};
 
-    c.x = vUvs.x;
-    c.y = vUvs.y;
+    c.x = center.x + vUvs.x * scale.x;
+    c.y = center.y + vUvs.y * scale.y;
 
     z = c;
     for ( int it = 0; it < iter; it++ ) {

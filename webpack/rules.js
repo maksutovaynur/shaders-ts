@@ -13,6 +13,14 @@ module.exports = [
         type: 'asset/source',
     },
     {
+        test: /\.css$/,
+        use: ['style-loader','css-loader']
+    },
+    {
+        test: /\.s[ac]ss$/,
+        use: ['style-loader', 'css-loader', 'sass-loader'],
+    },
+    {
         test: /\.tsx?$/,
         loader: 'ts-loader',
         exclude: /node_modules/,
