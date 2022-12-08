@@ -31,22 +31,25 @@ export default function createApp(parent: HTMLElement | null) {
 
     Diffusion.DiffusionProcess.numbersFromTexture(initPicture).then(
         (image: N[][][]) => {
-            let [w, h, d] = [image.length, image[0].length, image[0][0].length];
-            console.log(`${w}, ${h}, ${d}`);
+            let [d, h, w] = [image.length, image[0].length, image[0][0].length];
+            console.log(`Image shape d=${d}, h=${h}, w=${w}`);
             let params = new Diffusion.DiffusionParams(0.01, 3);
             let diff = image.map((layer: N[][]) => 
                 (new Diffusion.DiffusionProcess(layer, params))
             );
-            // let diff = new Diffusion.DiffusionProcess2(canvas, params);
             
             let i = 0;
             app.ticker.add((delta) => {
                 // diff.update(delta);
+                let result: N[][][] = [];
                 for(let j = 0; j < 3; j++) {
                     let x = diff[j].update(delta);
-                    if (i % 100 == 0) console.log(`arr: ${JSON.stringify(x)}`);
+                    // if (i % 100 == 0) console.log(`arr: ${JSON.stringify(x)}`);
+                    result.push(x);
                 }
-                // canvas.texture = PIXI.Texture.fromBuffer(item, );
+                let arr = new Float32Array(result.flat(3));
+                console.log(`Len of array: ${arr.length}; elems: ${w * h * d}`);
+                canvas.texture = PIXI.Texture.fromBuffer(arr, w, h);
                 i += 1;
             });
         }
