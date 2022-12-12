@@ -51,7 +51,7 @@ export abstract class GridProcess<Params extends object> {
     private rawOutputKernel: any;
     private mainData: any;
 
-    abstract kernelFunction: GPU.KernelFunction;
+    abstract mainKernelFunction: GPU.KernelFunction;
     abstract gpu: GPU.GPU;
 
     public constructor(grid: Grid2D, parameters: Params) {
@@ -62,7 +62,7 @@ export abstract class GridProcess<Params extends object> {
 
     build() {
         let {width, height, layers} = this.grid;
-        this.mainKernel = this.gpu.createKernel(this.kernelFunction)
+        this.mainKernel = this.gpu.createKernel(this.mainKernelFunction)
             .setConstants({...this.parameters, width, height, layers})
             .setOutput([this.grid.size()])
             .setPipeline(true);
