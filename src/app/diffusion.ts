@@ -18,79 +18,107 @@ export class DiffusionParams {constructor(
 ){}};
 
 
-class Field {
-    constructor (width: N, height: N, depth: N, values: N[]){};
-}
-
-function get2Element(buffer: N[], w: N, h: N, d: N, x: N, y: N, z: N) {
-    return buffer[x * h * d + y * d + z];
+export class Grid2D {
+    constructor (public buffer: Float32Array, public width: N, public height: N, public layers: N){};
+    size(): N {
+        return this.width * this.height * this.layers;
+    }
+    static genRandom(width: N, height: N, layers: N, func: Function | null = null): Grid2D {
+        return new Grid2D(Grid2D.genRandomBuffer(width, height, layers, func), width, height, layers);
+    }
+    static genRandomBuffer(width: N, height: N, layers: N, func: Function | null = null): Float32Array {
+        let arr = Array.from({ length: width * height * layers });
+        function funk(x: N, y: N, z: N){
+            if (z == 3) return 1.0;
+            return 0.5 + 0.5 * Math.pow(Math.random(), 12);
+        }
+        function func_flat(e: any, i: N){
+            return (func || funk)(
+                Math.floor(i % (width * layers) / layers),
+                Math.floor(i / (width * layers)), 
+                i % layers
+            )
+        }
+        return new Float32Array(arr.map(func_flat));
+    }
+    toTexture(): PIXI.Texture {
+        let tex = PIXI.Texture.fromBuffer(this.buffer, this.width, this.height);
+        tex.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+        return tex;
+    }
+    setData(value: N, x: N, y: N, z: N) {
+        let pos = y * this.width * this.layers + x * this.layers + z;
+        if (pos >= this.size() || pos < 0) return;
+        this.buffer.set([value], pos);
+    }
 }
 
 
 export class DiffusionProcess {
     kernel: any;
-    width: N;
-    height: N;
-    concentrations;
-    constructor (initialConcentrations: N[][], params: Diff.DiffusionParams){
-        this.width = initialConcentrations.length;
-        this.height = initialConcentrations[0].length;
-        this.concentrations = initialConcentrations;
+    toOutput: any;
+    fromColor: any;
+    grid: Grid2D;
+    constructor (grid: Grid2D, params: Diff.DiffusionParams){
+        this.grid = grid;
+        // this.fromColor = gpu.createKernel(limToUnlim).setOutput([size]).setPipeline(true);
         this.kernel = gpu.createKernel(Funcs.diffusionKernelFunction)
-            .setConstants({...params, width: this.width, height: this.height})
-            .setOutput([this.width, this.height]);
+            .setConstants({...params, width: grid.width, height: grid.height, layers: grid.layers})
+            .setOutput([grid.size()]).setPipeline(true);
+        this.toOutput = gpu.createKernel(identity).setOutput([grid.size()]);
     }
-    update(deltaTime: N): N[][] {
-        this.concentrations = this.kernel(this.concentrations, deltaTime);
-        return this.concentrations;
+    putSubstance(value: N, x: N, y: N, z: N) {
+        this.grid.setData(value, x, y, z)
     }
-    static async numbersFromTexture(resource: string): Promise<N[][][]> {
-        let img = document.createElement('img');
-        img.src = resource;
-        await img.decode();
-        function convert(img: N[][][]) {
-            let value = img[this.thread.y][this.thread.x as any][this.thread.z as any];
-            // value = - Math.log(value/value - value);
-            return value;
-        }
-        let kernel = gpu.createKernel(convert)
-        .setOutput([img.height, img.width, 4]);
-        // .setOutput([4, img.width, img.height]);
-        return kernel(img) as N[][][];
+    update(deltaTime: N): Float32Array {
+        let data = this.grid.buffer;
+        // data = this.fromColor(data);
+        data = this.kernel(data, deltaTime);
+        data = this.toOutput(data);
+        this.grid.buffer = data;
+        return this.grid.buffer;
     }
 }
 
-export class DiffusionProcess2 {
-    kernel: any;
-    kernelG: any;
-    width: N;
-    height: N;
-    concentrations: PIXI.Sprite;
-    constructor (sprite: PIXI.Sprite, params: Diff.DiffusionParams){
-        this.width = sprite.width;
-        this.height = sprite.height;
-        this.concentrations = sprite;
-        this.kernel = gpu.createKernel(Funcs.diffusionKernelFunction)
-            .setConstants({...params, width: this.width, height: this.height})
-            .setOutput([this.width, this.height])
-            .setPipeline(true);
-        this.kernelG = gpu.createKernel(function(values: N[][]){
-            this.color(0.0, 0.0, values[this.thread.x][this.thread.y]);
-        }).setGraphical(true);
-    }
-    update(deltaTime: N): PIXI.Sprite {
-        let result = this.kernel(this.concentrations.texture, deltaTime);
-        let pixels = this.kernelG(result).getPixels();
-        this.concentrations.texture = PIXI.Texture.fromBuffer(pixels, this.width, this.height);
-        return this.concentrations;
-    }
+function multiplexBuffers(buffer1: N[], buffer2: N[]) {
+    let t = this.thread.x;
+    let width = this.constants.width;
+    let l1 = this.constants.l1;
+    let l2 = this.constants.l2;
+    let l = l1 + l2;
+    let z = t % l;
+    let x = Math.floor(t % width / l);
+    let y = Math.floor(t / (l * width));
+    if (t % l < l1) return buffer1[y * width * l1 + x * l1 + z];
+    else return buffer2[y * width * l2 + x * l2 + z];
 }
 
-function limToUnlim(lim: N): N {
+
+function demultiplexBuffer(buffer: N[]) {
+    let t = this.thread.x;
+    let width = this.constants.width;
+    let layers = this.constants.layers;
+    let extract: N[] = this.constants.extract;
+    let z = extract[t % extract.length];
+    let x = Math.floor(t % width / layers);
+    let y = Math.floor(t / (layers * width));
+    return buffer[y * width * layers + x * layers + z];
+}
+
+
+function limToUnlim(lims: N[]): N {
+    let lim = lims[this.thread.x];
     const _SMALL_DELTA = 1e-9;
     return - Math.log(1.0 - lim + _SMALL_DELTA);
 }
 
-function unlimToLim(unlim: N): N {
-    return 1 - Math.exp(-unlim);
+function unlimToLim(unlims: N[]): N {
+    let unlim = unlims[this.thread.x];
+    const _SMALL_DELTA = 1e-9;
+    return 1 - Math.exp(-unlim) - _SMALL_DELTA;
+}
+
+function identity(x: N[]): N {
+    if (this.thread.x % 4 == 3) return 1.0;
+    return x[this.thread.x];
 }

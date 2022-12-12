@@ -1,24 +1,27 @@
 type N = number;
 
-export function diffusionKernelFunction(concentrations: N[][], dt: N): N {
-    let x = this.thread.x;
-    let y = this.thread.y;
+export function diffusionKernelFunction(concentrations: N[], dt: N): N {
     let w = this.constants.width;
     let h = this.constants.height;
+    let l = this.constants.layers;
+    let size = w * h * l;
+    let t = this.thread.x;
     let coefficient = this.constants.coefficient;
     let eulerSteps = this.constants.eulerSteps;
-    let c: N = concentrations[x][y];
+    let c: N = concentrations[t];
     let delta: N = calculateDiffusionEffect(
             c,
-            concentrations[x][(y - 1) % h],
-            concentrations[(x + 1) % w][y],
-            concentrations[x][(y + 1) % h],
-            concentrations[(x - 1) % w][y],
+            concentrations[(t - w * l) % size],
+            concentrations[(t + l) % size],
+            concentrations[(t + w * l) % size],
+            concentrations[(t - l) % size],
             coefficient,
             dt,
             eulerSteps
     );
-    return c + delta;
+    let newC = c + delta;
+    if (newC < 0) newC = 0.0;
+    return newC;
 }
 
 export function calculateDiffusionEffect(
@@ -40,7 +43,7 @@ export function calculateDiffusionSpeed(
     c: N, ct: N, cr: N, cb: N, cl: N, diffCoeff: N
 ): N {
     // Вычисляем дивергенцию концентрации вещества
-    let spaceDeriv = (ct + cr + cb + cl - 4.0 * c);
+    let spaceDeriv = - 4.0 * c + ct + cr + cb + cl;
     // Возвращаем домноженную на коэффициент диффузии - получится производная по времени
     return spaceDeriv * diffCoeff;
 }

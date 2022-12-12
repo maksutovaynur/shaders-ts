@@ -10,6 +10,7 @@
             "../node_modules/pixi.js",
         ],
         "types" : ["node", "pixi.js"],
+        "esModuleInterop": true,
     },
     "include": ["../src/app/*.ts", "../src/assets/*", "../src/shaders/*"]
 }

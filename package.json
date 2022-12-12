@@ -28,6 +28,8 @@
     "start": "webpack serve --config webpack/webpack.config.js"
   },
   "dependencies": {
+    "@pixi/events": "^7.0.4",
+    "@pixi/interaction": "^6.5.8",
     "gpu.js": "^2.16.0",
     "pixi.js": "^7.0.4"
   }

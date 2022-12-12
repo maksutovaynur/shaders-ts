@@ -1,7 +1,10 @@
 import * as PIXI from 'pixi.js';
-import * as Utils from './utils';
+import * as Ev from '@pixi/events';
 import * as Diffusion from './diffusion';
+import { Sprite } from 'pixi.js';
+import { allowedNodeEnvironmentFlags } from 'process';
 const initPicture = require('../assets/startingPoint.png');
+delete PIXI.Renderer.__plugins.interaction;
 type N = number;
 
 
@@ -13,52 +16,80 @@ export default function createApp(parent: HTMLElement | null) {
         view: parent as HTMLCanvasElement,
         backgroundColor: 0x30cfff
     });
-    let {width: w, height: h} = app.screen;
-    console.log(`screen[w=${app.screen.width}, ${app.screen.height}]`);
-    let canvas = Utils.createCanvas(w, h, PIXI.Texture.from(
-        initPicture,
-        {width: w, height: h}
-    ));
+    if (!('events' in app.renderer))
+        app.renderer.addSystem(Ev.EventSystem, 'events');
+    let { width: w, height: h } = app.screen;
+    let d = 4;
 
+    let grid = Diffusion.Grid2D.genRandom(200, 150, 4, (x: N, y: N , z: N) => {
+        if (z % d == 3) return 1.0;
+        else if (z % d == 1) return 0.01 + 0.1 * Math.pow(Math.random(), 12);
+        else if (z % d == 2) return 0.01;
+        else if (z % d == 0) return 0.01; 
+    });
+    let canvas = createCanvas(w, h, grid.toTexture());
     let text = createInfoText(w, h);
     app.stage.addChild(canvas);
     app.stage.addChild(text);
+    // app.stage.addListener('mousedown')
 
-    app.ticker.maxFPS = 60;
-    app.ticker.add((delta) => {
-        updateInfoText(text, delta);
+    let mouse = {active: false, x: 0, y: 0};
+    canvas.interactive = true;
+    canvas.addListener('mousedown', function(event: any) {
+        mouse.active = true;
+        mouse.x = event.data.x;
+        mouse.y = event.data.y;
+        console.log(`Active!`);
     });
-
-    Diffusion.DiffusionProcess.numbersFromTexture(initPicture).then(
-        (image: N[][][]) => {
-            let [d, h, w] = [image.length, image[0].length, image[0][0].length];
-            console.log(`Image shape d=${d}, h=${h}, w=${w}`);
-            let params = new Diffusion.DiffusionParams(0.01, 3);
-            let diff = image.map((layer: N[][]) => 
-                (new Diffusion.DiffusionProcess(layer, params))
+    canvas.addListener('mouseup', function(event: any) {
+        mouse.active = false;
+        console.log(`Not active!`);
+    });
+    canvas.addListener('mousemove', function(event: any) {
+        mouse.x = event.data.x;
+        mouse.y = event.data.y;
+        console.log(`Not active!`);
+    });
+    console.log(`canvas=${Object.keys(canvas)}`);
+    app.ticker.maxFPS = 60;
+    console.log(`Image shape d=${d}, h=${h}, w=${w}`);
+    let diff = new Diffusion.DiffusionProcess(
+        grid,
+        new Diffusion.DiffusionParams(0.001, 1)
+    );
+    let i = 0;
+    let start = performance.now();
+    let prev = start;
+    app.ticker.add((deltaFrame: N) => {
+        const delta = app.ticker.deltaMS;
+        let now = performance.now();
+        if (mouse.active) {
+            diff.putSubstance(
+                20.0, 
+                Math.floor(mouse.x * grid.width / canvas.width), 
+                Math.floor(mouse.y * grid.height / canvas.height), 
+                2
             );
-            
-            let i = 0;
-            app.ticker.add((delta) => {
-                // diff.update(delta);
-                let result: N[][][] = [];
-                for(let j = 0; j < 3; j++) {
-                    let x = diff[j].update(delta);
-                    // if (i % 100 == 0) console.log(`arr: ${JSON.stringify(x)}`);
-                    result.push(x);
-                }
-                let arr = new Float32Array(result.flat(3));
-                console.log(`Len of array: ${arr.length}; elems: ${w * h * d}`);
-                canvas.texture = PIXI.Texture.fromBuffer(arr, w, h);
-                i += 1;
-            });
         }
-    )
-
+        updateInfoText(text, delta);
+        prev = now;        
+        if (i % 10 == 0)
+            console.log(`
+                typeof r[0]=${grid.buffer[0].constructor.name}, 
+                typeof r=${grid.buffer.constructor.name},
+                r[0]=${grid.buffer[0]}
+                `);
+        const IT = 10;
+        for (let k = 0; k < IT; k++) {
+            diff.update(delta / IT);
+        }
+        canvas.texture = grid.toTexture();
+        i += 1;
+    });
 
 }
 
-function updateInfoText(text: PIXI.Text, deltaTime: number) {
+function updateInfoText(text: PIXI.Text, deltaTime: N) {
     let fps = PIXI.Ticker.shared.FPS;
     text.text = `FPS=${fps.toFixed(1)}, dt=${deltaTime.toFixed(1)}ms`;
 }
@@ -69,7 +100,20 @@ function createInfoText(w: number, h: number) {
     text.y = 0;
     text.style = {
         fontFamily: 'Arial',
-        fontSize: 36
+        fontSize: 36,
+        fill: '#FFFFFF'
     }
     return text;
+}
+
+function createCanvas(w: number, h: number, texture: PIXI.Texture): PIXI.Sprite {
+    let canvas = PIXI.Sprite.from(texture);
+    canvas.anchor.set(0.5);
+    canvas.x = w / 2;
+    canvas.y = h / 2;
+    canvas.width = w;
+    canvas.height = h;
+    console.log(`sprite[w=${canvas.width}, ${canvas.height}]`);
+    console.log(`texture[w=${texture.width}, ${texture.height}]`);
+    return canvas;
 }
