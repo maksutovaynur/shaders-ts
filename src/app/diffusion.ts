@@ -14,7 +14,8 @@ gpu.addFunction(unlimToLim);
 
 export class DiffusionParams {constructor(
     public coefficient: number,
-    public eulerSteps: number
+    public eulerSteps: number,
+    public distructionSpeed: number = 0.0,
 ){}};
 
 

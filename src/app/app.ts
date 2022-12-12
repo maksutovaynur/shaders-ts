@@ -9,7 +9,6 @@ type N = number;
 
 
 export default function createApp(parent: HTMLElement | null) {
-    // parent.clientWidth, parent.clientHeight;
     if (!parent) return;
     const app = new PIXI.Application({
         resizeTo: parent,
@@ -26,47 +25,38 @@ export default function createApp(parent: HTMLElement | null) {
     });
     let diff = new Diffusion.DiffusionProcess(
         grid,
-        new Diffusion.DiffusionParams(0.003, 5)
+        new Diffusion.DiffusionParams(5.3, 5, 0.9)
     );
-    let canvas = createCanvas(w, h, diff.getTexture([0]));
-    let text = createInfoText(w, h);
-    app.stage.addChild(canvas);
-    app.stage.addChild(text);
-    // app.stage.addListener('mousedown')
 
-    let mouse = {active: false, x: 0, y: 0};
-    canvas.interactive = true;
-    canvas.addListener('pointerdown', function(event: any) {
-        mouse.active = true;
-        mouse.x = event.data.x;
-        mouse.y = event.data.y;
-    });
-    canvas.addListener('pointerup', function(event: any) {
-        mouse.active = false;
-    });
-    canvas.addListener('pointermove', function(event: any) {
-        mouse.x = event.data.x;
-        mouse.y = event.data.y;
-    });
+    let canvas = createCanvas(w, h, diff.getTexture([0]));
+    let mouse = setupMouse(canvas);
+    app.stage.addChild(canvas);
+
     console.log(`canvas=${Object.keys(canvas)}`);
-    app.ticker.maxFPS = 60;
     console.log(`Image shape d=${d}, h=${h}, w=${w}`);
+
     let i = 0;
     let start = performance.now();
     let prev = start;
+
+    let text = createInfoText(w, h);
+    app.stage.addChild(text);
+
+    app.ticker.maxFPS = 60;
     app.ticker.add((deltaFrame: N) => {
-        const delta = app.ticker.deltaMS;
+        const deltaMs = app.ticker.deltaMS;
+        const deltaS = deltaMs / 1000;
         let now = performance.now();
         if (mouse.active) {
             diff.putSubstance(
-                11.1 * delta, 
+                11.1 * deltaMs, 
                 Math.floor(mouse.x * grid.width / canvas.width), 
                 Math.floor(mouse.y * grid.height / canvas.height), 
-                2
+                mouse.color,
             );
         }
-        updateInfoText(text, delta);
-        prev = now;        
+        updateInfoText(text, deltaMs);
+        prev = now;
         if (i % 60 == 0)
             console.log(`
                 typeof r[0]=${grid.buffer[0].constructor.name}, 
@@ -75,7 +65,7 @@ export default function createApp(parent: HTMLElement | null) {
                 `);
         const IT = 3;
         for (let k = 0; k < IT; k++) {
-            diff.update(delta / IT);
+            diff.update(deltaS / IT);
         }
         canvas.texture = diff.getTexture([0, 1, 2]);
         i += 1;
@@ -110,4 +100,25 @@ function createCanvas(w: number, h: number, texture: PIXI.Texture): PIXI.Sprite 
     console.log(`sprite[w=${canvas.width}, ${canvas.height}]`);
     console.log(`texture[w=${texture.width}, ${texture.height}]`);
     return canvas;
+}
+
+function setupMouse(sprite: PIXI.Sprite): any {
+    let mouse = {active: false, x: 0, y: 0, color: 2};
+    sprite.interactive = true;
+    sprite.addListener('pointerdown', function(event: any) {
+        mouse.active = true;
+        mouse.x = event.data.x;
+        mouse.y = event.data.y;
+    });
+    sprite.addListener('pointerup', function(event: any) {
+        mouse.active = false;
+    });
+    sprite.addListener('pointermove', function(event: any) {
+        mouse.x = event.data.x;
+        mouse.y = event.data.y;
+    });
+    sprite.addListener('pointertap', function(event: any){
+        mouse.color = (mouse.color + 1) % 3;
+    });
+    return mouse;
 }

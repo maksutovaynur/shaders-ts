@@ -20,7 +20,8 @@ export function diffusionKernelFunction(concentrations: N[], dt: N): N {
             eulerSteps
     );
     let newC = c + delta;
-    if (newC < 0) newC = 0.0;
+
+    newC = newC * Math.exp(- dt * this.constants.distructionSpeed);
     return newC;
 }
 
@@ -34,7 +35,7 @@ export function calculateDiffusionEffect(
             cCurrent, ct, cr, cb, cl, 
             diffCoeff
         );
-        cCurrent = c + diffSpeed * deltaTime;
+        cCurrent = Math.max(c + diffSpeed * deltaTime, 0.0);
     }
     return cCurrent - c;
 }
