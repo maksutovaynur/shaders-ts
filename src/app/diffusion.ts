@@ -27,9 +27,11 @@ export class Grid2D {
         return this.width * this.height;
     }
     static genRandom(width: N, height: N, layers: N, func: Function | null = null): Grid2D {
+        width = Math.floor(width); height = Math.floor(height); layers = Math.floor(layers);
         return new Grid2D(Grid2D.genRandomBuffer(width, height, layers, func), width, height, layers);
     }
     static genRandomBuffer(width: N, height: N, layers: N, func: Function | null = null): Float32Array {
+        width = Math.floor(width); height = Math.floor(height); layers = Math.floor(layers);
         let arr = Array.from({ length: width * height * layers });
         function funk(x: N, y: N, z: N){
             if (z == 3) return 1.0;
@@ -66,6 +68,7 @@ export class DiffusionProcess {
     idToOutput: any;
     idFromInput: any;
     toColor: any;
+    crop: any;
     grid: Grid2D;
     colorBuffer: Float32Array;
     private kernelData: Float32Array;
@@ -75,6 +78,7 @@ export class DiffusionProcess {
         this.kernel = gpu.createKernel(Funcs.diffusionKernelFunction)
             .setConstants({...params, width: grid.width, height: grid.height, layers: grid.layers})
             .setOutput([grid.size()]).setPipeline(true);
+        this.crop = gpu.createKernel(unlimToLim).setOutput([grid.size()]).setPipeline(true);
         this.toColor = gpu.createKernel(demultiplexBuffer)
             .setConstants({width: grid.width, height: grid.height, layers: grid.layers, defaultValue: 1.0})
             .setOutput([4 * grid.size2D()]);
@@ -93,7 +97,7 @@ export class DiffusionProcess {
         if (layers.length < 4) {
             for (let i = layers.length; i < 4; i++) {layers.push(-1);}
         } else if (layers.length > 4) layers.length = 4;
-        this.colorBuffer = this.toColor(this.kernelData, layers, 4);
+        this.colorBuffer = this.toColor(this.crop(this.kernelData), layers, 4);
         return PIXI.Texture.fromBuffer(this.colorBuffer, this.grid.width, this.grid.height);
     }
 }

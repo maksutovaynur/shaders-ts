@@ -3,7 +3,7 @@ import * as Ev from '@pixi/events';
 import * as Diffusion from './diffusion';
 import { Sprite } from 'pixi.js';
 import { allowedNodeEnvironmentFlags } from 'process';
-const initPicture = require('../assets/startingPoint.png');
+
 delete PIXI.Renderer.__plugins.interaction;
 type N = number;
 
@@ -21,7 +21,7 @@ export default function createApp(parent: HTMLElement | null) {
     let { width: w, height: h } = app.screen;
     let d = 4;
 
-    let grid = Diffusion.Grid2D.genRandom(200, 150, 4, (x: N, y: N , z: N) => {
+    let grid = Diffusion.Grid2D.genRandom(w / 10, h / 10, 4, (x: N, y: N , z: N) => {
         return 0.01 + 0.1 * Math.pow(Math.random(), 12);
     });
     let diff = new Diffusion.DiffusionProcess(
@@ -59,7 +59,7 @@ export default function createApp(parent: HTMLElement | null) {
         let now = performance.now();
         if (mouse.active) {
             diff.putSubstance(
-                1.1 * delta, 
+                11.1 * delta, 
                 Math.floor(mouse.x * grid.width / canvas.width), 
                 Math.floor(mouse.y * grid.height / canvas.height), 
                 2
@@ -84,8 +84,8 @@ export default function createApp(parent: HTMLElement | null) {
 }
 
 function updateInfoText(text: PIXI.Text, deltaTime: N) {
-    let fps = PIXI.Ticker.shared.FPS;
-    text.text = `FPS=${fps.toFixed(1)}, dt=${deltaTime.toFixed(1)}ms`;
+    let fps = 1000.0 / deltaTime;
+    text.text = `FPS=${fps.toFixed(0)}, dt=${deltaTime.toFixed(0)}ms`;
 }
 
 function createInfoText(w: number, h: number) {
