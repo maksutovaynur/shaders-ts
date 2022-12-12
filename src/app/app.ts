@@ -1,6 +1,7 @@
 import * as PIXI from 'pixi.js';
 import * as Ev from '@pixi/events';
 import * as Diffusion from './diffusion';
+import * as Grid from './grid';
 import { Sprite } from 'pixi.js';
 import { allowedNodeEnvironmentFlags } from 'process';
 
@@ -13,20 +14,22 @@ export default function createApp(parent: HTMLElement | null) {
     const app = new PIXI.Application({
         resizeTo: parent,
         view: parent as HTMLCanvasElement,
-        backgroundColor: 0x30cfff
+        backgroundColor: 0x000000
     });
     if (!('events' in app.renderer))
         app.renderer.addSystem(Ev.EventSystem, 'events');
     let { width: w, height: h } = app.screen;
     let d = 4;
+    const CELL_SIZE = 10;
 
-    let grid = Diffusion.Grid2D.genRandom(w / 10, h / 10, 4, (x: N, y: N , z: N) => {
+    let grid = Grid.Grid2D.genRandom(w / CELL_SIZE, h / CELL_SIZE, 4, (x: N, y: N , z: N) => {
         return 0.01 + 0.1 * Math.pow(Math.random(), 12);
     });
     let diff = new Diffusion.DiffusionProcess(
         grid,
         new Diffusion.DiffusionParams(5.3, 5, 0.9)
     );
+    diff.build();
 
     let canvas = createCanvas(w, h, diff.getTexture([0]));
     let mouse = setupMouse(canvas);
@@ -67,7 +70,7 @@ export default function createApp(parent: HTMLElement | null) {
         for (let k = 0; k < IT; k++) {
             diff.update(deltaS / IT);
         }
-        canvas.texture = diff.getTexture([0, 1, 2]);
+        canvas.texture = diff.getTexture([0, 1, 2], [1.0]);
         i += 1;
     });
 
