@@ -58,6 +58,8 @@ export abstract class GridProcess<Params extends object> {
     public constructor(grid: Grid2D, parameters: Params) {
         this.grid = grid;
         this.parameters = parameters;
+        if (this.grid.size() !== this.grid.buffer.length)
+            throw new Error(`Buffer len ${this.grid.buffer.length} doesn't match grid dimensions`);
     }
 
     build() {

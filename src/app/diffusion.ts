@@ -8,6 +8,7 @@ type N = number;
 const gpu = new GPU.GPU();
 gpu.addFunction(calculateDiffusionEffect);
 gpu.addFunction(calculateDiffusionSpeed);
+gpu.addFunction(flatten);
 
 
 export class DiffusionParams {constructor(
@@ -25,29 +26,39 @@ export class DiffusionProcess extends Grid.GridProcess<DiffusionParams> {
     }
 }
 
-export function diffusionKernelFunction(concentrations: N[], dt: N): N {
+export function diffusionKernelFunction(concentrations: N[], deltaSeconds: N): N {
     let w = this.constants.width;
     let h = this.constants.height;
     let l = this.constants.layers;
-    let size = w * h * l;
-    let t = this.thread.x;
-    let coefficient = this.constants.coefficient;
-    let eulerSteps = this.constants.eulerSteps;
+
+    let t = Math.floor(this.thread.x);
+    let x = Math.floor(t % (w * l) / l);
+    let y = Math.floor(t / (w * l));
+    let z = t % l;
+
     let c: N = concentrations[t];
     let delta: N = calculateDiffusionEffect(
             c,
-            concentrations[(t - w * l) % size],
-            concentrations[(t + l) % size],
-            concentrations[(t + w * l) % size],
-            concentrations[(t - l) % size],
-            coefficient,
-            dt,
-            eulerSteps
+            concentrations[flatten(x, y - 1, z, w, h, l)],
+            concentrations[flatten(x + 1, y, z, w, h, l)],
+            concentrations[flatten(x, y + 1, z, w, h, l)],
+            concentrations[flatten(x - 1, y, z, w, h, l)],
+            this.constants.coefficient,
+            deltaSeconds,
+            this.constants.eulerSteps
     );
     let newC = c + delta;
 
-    newC = newC * Math.exp(- dt * this.constants.distructionSpeed);
+    newC = newC * Math.exp(- deltaSeconds * this.constants.distructionSpeed);
     return newC;
+}
+
+
+export function flatten(x: N, y: N, z: N, w: N, h: N, l: N): N {
+    x = Math.max(Math.min(w - 1, x), 0);
+    y = Math.max(Math.min(h - 1, y), 0);
+    z = Math.max(Math.min(l - 1, z), 0);
+    return y % h * w * l + x % w * l + z % l;
 }
 
 export function calculateDiffusionEffect(
