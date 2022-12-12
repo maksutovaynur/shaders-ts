@@ -27,7 +27,7 @@ export default function createApp(parent: HTMLElement | null) {
     });
     let diff = new Diffusion.DiffusionProcess(
         grid,
-        new Diffusion.DiffusionParams(5.3, 5, 0.9)
+        new Diffusion.DiffusionParams(50.3, 5, 0.1)
     );
     diff.build();
 
@@ -66,10 +66,7 @@ export default function createApp(parent: HTMLElement | null) {
                 typeof r=${grid.buffer.constructor.name},
                 r[0]=${grid.buffer[0]}
                 `);
-        const IT = 3;
-        for (let k = 0; k < IT; k++) {
-            diff.update(deltaS / IT);
-        }
+        diff.update(deltaS, 55);
         canvas.texture = diff.getTexture([0, 1, 2], [1.0]);
         i += 1;
     });

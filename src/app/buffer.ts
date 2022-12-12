@@ -28,17 +28,14 @@ export function demultiplexBuffer(buffer: N[], extract: N[], extractLength: N, d
 
 export function limToUnlim(lims: N[]): N {
     let lim = lims[this.thread.x];
-    const _SMALL_DELTA = 1e-9;
-    return - Math.log(1.0 - lim + _SMALL_DELTA);
+    return - Math.log(1.0 - lim);
 }
 
 export function unlimToLim(unlims: N[]): N {
     let unlim = unlims[this.thread.x];
-    const _SMALL_DELTA = 1e-9;
-    return 1 - Math.exp(- Math.abs(unlim)) - _SMALL_DELTA;
+    return 1 - Math.exp(-Math.abs(unlim));
 }
 
 export function identity(x: N[]): N {
-    if (this.thread.x % 4 == 3) return 1.0;
     return x[this.thread.x];
 }

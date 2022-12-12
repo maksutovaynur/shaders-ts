@@ -46,6 +46,7 @@ export abstract class GridProcess<Params extends object> {
     public parameters: Params;
 
     private mainKernel: any;
+    private mainAdapterKernel: any;
     private clampKernel: any;
     private colorOutputKernel: any;
     private rawOutputKernel: any;
@@ -57,10 +58,10 @@ export abstract class GridProcess<Params extends object> {
     public constructor(grid: Grid2D, parameters: Params) {
         this.grid = grid;
         this.parameters = parameters;
-        // this.build();
     }
 
     build() {
+        // This is mandatory to call before usage
         let {width, height, layers} = this.grid;
         this.mainKernel = this.gpu.createKernel(this.mainKernelFunction)
             .setConstants({...this.parameters, width, height, layers})
@@ -68,6 +69,9 @@ export abstract class GridProcess<Params extends object> {
             .setPipeline(true);
         this.rawOutputKernel = this.gpu.createKernel(Buf.identity)
             .setOutput([this.grid.size()]);
+        this.mainAdapterKernel = this.gpu.createKernel(Buf.identity)
+            .setOutput([this.grid.size()])
+            .setPipeline(true);
         this.clampKernel = this.gpu.createKernel(Buf.unlimToLim)
             .setOutput([this.grid.size()])
             .setPipeline(true);
@@ -76,8 +80,12 @@ export abstract class GridProcess<Params extends object> {
             .setOutput([this.grid.size2D() * 4]);
         this.mainData = this.grid.buffer;
     }
-    update(deltaSeconds: N, ...args: any[]): Float32Array {
-        this.mainData = this.mainKernel(this.grid.buffer, deltaSeconds, ...args);
+    update(deltaSeconds: N, iterations: N, ...args: any[]): Float32Array {
+        this.mainData = this.grid.buffer
+        for (let i = 0; i < iterations; i++) {
+            let buffer = this.mainAdapterKernel(this.mainData);
+            this.mainData = this.mainKernel(buffer, deltaSeconds / iterations, ...args);
+        }
         this.grid.buffer = this.rawOutputKernel(this.mainData);
         return this.grid.buffer;
     }
