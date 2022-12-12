@@ -22,12 +22,13 @@ export default function createApp(parent: HTMLElement | null) {
     let d = 4;
 
     let grid = Diffusion.Grid2D.genRandom(200, 150, 4, (x: N, y: N , z: N) => {
-        if (z % d == 3) return 1.0;
-        else if (z % d == 1) return 0.01 + 0.1 * Math.pow(Math.random(), 12);
-        else if (z % d == 2) return 0.01;
-        else if (z % d == 0) return 0.01; 
+        return 0.01 + 0.1 * Math.pow(Math.random(), 12);
     });
-    let canvas = createCanvas(w, h, grid.toTexture());
+    let diff = new Diffusion.DiffusionProcess(
+        grid,
+        new Diffusion.DiffusionParams(0.003, 5)
+    );
+    let canvas = createCanvas(w, h, diff.getTexture([0]));
     let text = createInfoText(w, h);
     app.stage.addChild(canvas);
     app.stage.addChild(text);
@@ -35,28 +36,21 @@ export default function createApp(parent: HTMLElement | null) {
 
     let mouse = {active: false, x: 0, y: 0};
     canvas.interactive = true;
-    canvas.addListener('mousedown', function(event: any) {
+    canvas.addListener('pointerdown', function(event: any) {
         mouse.active = true;
         mouse.x = event.data.x;
         mouse.y = event.data.y;
-        console.log(`Active!`);
     });
-    canvas.addListener('mouseup', function(event: any) {
+    canvas.addListener('pointerup', function(event: any) {
         mouse.active = false;
-        console.log(`Not active!`);
     });
-    canvas.addListener('mousemove', function(event: any) {
+    canvas.addListener('pointermove', function(event: any) {
         mouse.x = event.data.x;
         mouse.y = event.data.y;
-        console.log(`Not active!`);
     });
     console.log(`canvas=${Object.keys(canvas)}`);
     app.ticker.maxFPS = 60;
     console.log(`Image shape d=${d}, h=${h}, w=${w}`);
-    let diff = new Diffusion.DiffusionProcess(
-        grid,
-        new Diffusion.DiffusionParams(0.001, 1)
-    );
     let i = 0;
     let start = performance.now();
     let prev = start;
@@ -65,7 +59,7 @@ export default function createApp(parent: HTMLElement | null) {
         let now = performance.now();
         if (mouse.active) {
             diff.putSubstance(
-                20.0, 
+                1.1 * delta, 
                 Math.floor(mouse.x * grid.width / canvas.width), 
                 Math.floor(mouse.y * grid.height / canvas.height), 
                 2
@@ -73,17 +67,17 @@ export default function createApp(parent: HTMLElement | null) {
         }
         updateInfoText(text, delta);
         prev = now;        
-        if (i % 10 == 0)
+        if (i % 60 == 0)
             console.log(`
                 typeof r[0]=${grid.buffer[0].constructor.name}, 
                 typeof r=${grid.buffer.constructor.name},
                 r[0]=${grid.buffer[0]}
                 `);
-        const IT = 10;
+        const IT = 3;
         for (let k = 0; k < IT; k++) {
             diff.update(delta / IT);
         }
-        canvas.texture = grid.toTexture();
+        canvas.texture = diff.getTexture([0, 1, 2]);
         i += 1;
     });
 

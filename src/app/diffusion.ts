@@ -23,6 +23,9 @@ export class Grid2D {
     size(): N {
         return this.width * this.height * this.layers;
     }
+    size2D(): N {
+        return this.width * this.height;
+    }
     static genRandom(width: N, height: N, layers: N, func: Function | null = null): Grid2D {
         return new Grid2D(Grid2D.genRandomBuffer(width, height, layers, func), width, height, layers);
     }
@@ -53,32 +56,48 @@ export class Grid2D {
     }
 }
 
+interface GridProcess {
+    grid: Grid2D;
+}
+
 
 export class DiffusionProcess {
     kernel: any;
-    toOutput: any;
-    fromColor: any;
+    idToOutput: any;
+    idFromInput: any;
+    toColor: any;
     grid: Grid2D;
+    colorBuffer: Float32Array;
+    private kernelData: Float32Array;
     constructor (grid: Grid2D, params: Diff.DiffusionParams){
         this.grid = grid;
-        // this.fromColor = gpu.createKernel(limToUnlim).setOutput([size]).setPipeline(true);
+        this.idFromInput = gpu.createKernel(identity).setOutput([grid.size()]).setPipeline(true);
         this.kernel = gpu.createKernel(Funcs.diffusionKernelFunction)
             .setConstants({...params, width: grid.width, height: grid.height, layers: grid.layers})
             .setOutput([grid.size()]).setPipeline(true);
-        this.toOutput = gpu.createKernel(identity).setOutput([grid.size()]);
+        this.toColor = gpu.createKernel(demultiplexBuffer)
+            .setConstants({width: grid.width, height: grid.height, layers: grid.layers, defaultValue: 1.0})
+            .setOutput([4 * grid.size2D()]);
+        this.idToOutput = gpu.createKernel(identity).setOutput([grid.size()]);
+        this.kernelData = this.idFromInput(this.grid.buffer);
     }
     putSubstance(value: N, x: N, y: N, z: N) {
         this.grid.setData(value, x, y, z)
     }
     update(deltaTime: N): Float32Array {
-        let data = this.grid.buffer;
-        // data = this.fromColor(data);
-        data = this.kernel(data, deltaTime);
-        data = this.toOutput(data);
-        this.grid.buffer = data;
+        this.kernelData = this.kernel(this.grid.buffer, deltaTime);
+        this.grid.buffer = this.idToOutput(this.kernelData);
         return this.grid.buffer;
     }
+    getTexture(layers: N[], defaultValue: N = 1.0): PIXI.Texture {
+        if (layers.length < 4) {
+            for (let i = layers.length; i < 4; i++) {layers.push(-1);}
+        } else if (layers.length > 4) layers.length = 4;
+        this.colorBuffer = this.toColor(this.kernelData, layers, 4);
+        return PIXI.Texture.fromBuffer(this.colorBuffer, this.grid.width, this.grid.height);
+    }
 }
+
 
 function multiplexBuffers(buffer1: N[], buffer2: N[]) {
     let t = this.thread.x;
@@ -94,15 +113,17 @@ function multiplexBuffers(buffer1: N[], buffer2: N[]) {
 }
 
 
-function demultiplexBuffer(buffer: N[]) {
+function demultiplexBuffer(buffer: N[], extract: N[], extractLength: N) {
     let t = this.thread.x;
     let width = this.constants.width;
     let layers = this.constants.layers;
-    let extract: N[] = this.constants.extract;
-    let z = extract[t % extract.length];
-    let x = Math.floor(t % width / layers);
-    let y = Math.floor(t / (layers * width));
-    return buffer[y * width * layers + x * layers + z];
+    // let extract: N[] = this.constants.extract;
+    let z = extract[t % extractLength];
+    if (z < 0) return this.constants.defaultValue;
+    let size = this.constants.height * width * layers;
+    let x = Math.floor(t % (width * layers) / layers);
+    let y = Math.floor(t / (width * layers));
+    return buffer[(y * width * layers + x * layers + z) % size];
 }
 
 
