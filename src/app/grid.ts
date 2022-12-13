@@ -21,7 +21,6 @@ export class Grid2D {
         width = Math.floor(width); height = Math.floor(height); layers = Math.floor(layers);
         let arr = Array.from({ length: width * height * layers });
         function funk(x: N, y: N, z: N){
-            if (z == 3) return 1.0;
             return 0.5 + 0.5 * Math.pow(Math.random(), 12);
         }
         function func_flat(e: any, i: N){
@@ -42,7 +41,7 @@ export class Grid2D {
 
 
 export abstract class GridProcess<Params extends object> {
-    public grid: Grid2D;
+    protected grid: Grid2D;
     public parameters: Params;
 
     private mainKernel: any;
@@ -55,8 +54,14 @@ export abstract class GridProcess<Params extends object> {
     abstract mainKernelFunction: GPU.KernelFunction;
     abstract gpu: GPU.GPU;
 
+    abstract isCorrectGrid (grid: Grid2D): string | null;
+
     public constructor(grid: Grid2D, parameters: Params) {
         this.grid = grid;
+        let reason = this.isCorrectGrid(grid);
+        if (reason !== null) {
+            throw new Error(`Grid is not correct! [${reason}]`)
+        }
         this.parameters = parameters;
         if (this.grid.size() !== this.grid.buffer.length)
             throw new Error(`Buffer len ${this.grid.buffer.length} doesn't match grid dimensions`);

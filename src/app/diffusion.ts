@@ -21,6 +21,12 @@ export class DiffusionParams {constructor(
 export class DiffusionProcess extends Grid.GridProcess<DiffusionParams> {
     mainKernelFunction = diffusionKernelFunction as GPU.KernelFunction;
     gpu = gpu;
+
+    isCorrectGrid(grid: Grid.Grid2D): string | null {
+        if (grid.layers < 4) return "layers should be >= 4";
+        return null;
+    }
+
     putSubstance(value: N, x: N, y: N, z: N) {
         this.grid.setData(value, x, y, z)
     }
